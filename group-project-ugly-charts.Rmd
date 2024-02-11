@@ -1,0 +1,175 @@
+---
+title: "Group Project - Ugly Charts"
+author:  "CoolKids"
+date:  "3/2/2023"
+output:  html_document
+---
+
+```{r loading libraries and datasets}
+library(tidyverse)
+fisheries <- read.csv("data/fisheries.csv")
+continents <- read.csv("data/continents.csv")
+
+#view(fisheries)
+#view(continents)
+```
+
+
+Given below are data visualizations that violate many data visualization 
+best practices. Your assignment is to improve these visualizations using R and the tips for effective 
+visualizations that we introduced in class.  Your visualizations should be accompanied by a paragraph 
+describing the choices you made in your improvement, specifically discussing 
+what you didn't like in the original plots and why, and how you addressed those issues
+in the visualizations you created.  **Be sure to also summarize what you can conclude from your new visualization(s).**
+
+On the due date you will give a brief presentation describing your 
+improved visualizations and the reasoning for the choices you made.
+
+## Exercise 1:  Fisheries
+
+The Fisheries and Aquaculture Department of the Food and Agriculture Organization of the United Nations collects data on fisheries production of countries. [This Wikipedia page](https://en.wikipedia.org/wiki/Fishing_industry_by_country) lists fishery production of countries for 2018. For each country, tonnage from capture and aquaculture are listed. Note that countries whose total harvest was less than 100,000 tons are not included in the visualization, and your visualization should also not include countries whose total harvest was less than 100,000 tons.
+
+**Part 1:**  Suppose a researcher shared with you the visualizations below that he created based on these data.  Write a short paragraph describing what you do not like about the plots this researcher created and what your ideas are to improve the plots.  Implement your ideas and create improved visualization(s) that follow data visualization principles that we have discussed in class. Summarize what you can conclude from your new visualization(s). The source data can be found 
+in the `fisheries` dataset in the `/data` folder.
+**In the density plot, it is unclear what the red and blue regions represent without providing a key. Additionally, it is challenging to understand the density plot at the current transparency level. We believe that changing the transparency would help see the behavior of both distributions. For the pie chart, there are too many small chunks in the diagram for those to provide useful information on Capture or Aquaculture. Moreover, the key provided, does not include every chunk. It would make more sense to keep the main chunks in the key and combine all of the small chunks into one chunk and include that in the key as one additional color. This combined chunk could be called "Other continents". These visualizations are missing titles and axis labels, making it difficult to understand and interpret what we are studying.**
+
+```{r joining datasets}
+fish_continent <- left_join(fisheries, continents, by = "country")
+#view(fish_continent)
+```
+```{r checking datasets}
+fish_continent %>% 
+  filter(is.na(continent))
+```
+
+```{r replace-NA}
+fish_continent <- fish_continent %>% 
+  mutate(continent = ifelse(country == "Curaçao", "South America", continent),
+         continent = ifelse(country == "Hong Kong" | country == "Myanmar", 
+                            "Asia", continent),
+         continent = ifelse(country == "Democratic Republic of the Congo" | 
+                            country == "São Tomé and Príncipe", "Africa",                                         continent))
+```
+
+```{r greater than 100,000}
+fish_continent <- fish_continent %>%
+  filter(total > 100000)
+```
+
+
+**Part 2:**  Now suppose you are also provided with a dataset that contains the continent for countries around the world (see the dataset `continents` in the `/data` folder).  How would you use this additional data to create a new visualization?  Be sure to clearly state what question you are attempting to answer with your visualization and summarize what you can conclude from your new visualization.  A few hints:  be sure to first filter and only include countries whose total harvest is greater than 100,000 tons.  Second, all of the countries in the `fisheries` dataset may not be included in the `continents` dataset.  You can use something like `filter(is.na(continent))` to check for missing continent values after joining the two dataset  If you find any, you will need to use `mutate()` to fill in missing continent values.
+
+![fisheries-plot](img/fisheries.png)
+
+```{r freq-table}
+total_table <- fish_continent %>%
+  group_by(continent) %>%
+  summarise(total_tons = sum(total),total_capture = sum(capture), total_aq = sum(aquaculture))
+# Total number of tons per continent
+```
+
+```{r renaming}
+total_table <- total_table %>%
+  rename(`Total Capture` = total_capture, `Total Aquaculture` = total_aq)
+```
+
+```{r table-long}
+total_table_long <- pivot_longer(total_table, 
+             cols = "Total Capture":"Total Aquaculture",
+             names_to = "total_type",
+             values_to = "count")
+```
+
+```{r bar-chart, fig.width=7}
+ggplot(total_table_long, aes(y = continent, x = count, fill = total_type)) +
+  geom_col(position = "fill") +
+  labs(x = "Count", y = NULL, 
+       title = "Distribution of Total Harvest", subtitle = "by continent", 
+       fill = "Total Type") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_fill_viridis_d()
+```
+
+Most of the continents have larger proportion of capture tonnage except Asia. 
+Asia has a significantly larger proportion of aquaculture tonnage than any other continent. 
+
+## Exercise 2:  Instructional Staff Employee Trends
+
+The American Association of University Professors (AAUP) is a nonprofit membership association of faculty and other academic professionals. [This report](https://www.aaup.org/sites/default/files/files/AAUP_Report_InstrStaff-75-11_apr2013.pdf) compiled by the AAUP shows trends in instructional staff employees between 1975 and 2011, and contains an image very similar to the one given below.
+
+Write a short paragraph describing what you do not like about the plot this researcher created and what your ideas are to improve the plot.  Implement your ideas and create improved visualization(s) that follow data visualization principles that we have discussed in class.  Summarize what you can conclude from your new visualization.  The source data can be found 
+in the `instructional-staff` dataset in the `/data` folder.
+
+```{r import}
+staff <- read.csv("data/instructional-staff.csv")
+```
+
+![instructors-plot](img/inst_staff.png)
+
+**First, in this visualization, the blues in the color scheme are too similar in hue for them to be easily distinguished. There are no titles or axis labels that would help us understand and interpret the visualization. Also, we believe that the x-axis should be the years and the height of the bars should represent the counts for each employee type. The color could represent the employee type.**
+
+```{r rename-year-cols}
+staff <- staff %>%
+  rename("1975" = X1975,
+         "1989" = X1989, 
+         "1993" = X1993,
+         "1995" = X1995, 
+         "1999" = X1999, 
+         "2001" = X2001, 
+         "2003" = X2003,
+         "2005" = X2005,
+         "2007" = X2007,
+         "2009" = X2009, 
+         "2011" = X2011)
+```
+
+
+```{r staff-long}
+staff_long <- pivot_longer(staff, 
+             cols = "1975": "2011", 
+             names_to = "Year",
+             values_to = "Value")
+```
+
+```{r time-plot}
+staff_long %>%
+  group_by(faculty_type) %>%
+  ggplot(aes(x = Year, y = Value, color = faculty_type, group = faculty_type)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(x = NULL, y = "Percent of Total Instructional Staff", 
+       color = "Faculty Type", 
+       title = "Instructional Staff Trends from 1975 to 2011") +
+  theme_minimal() +
+  theme(legend.position = "bottom") + 
+  guides(color = guide_legend(nrow = 2, byrow = TRUE))
+```
+
+The percentage of full-time tenure track and full-time tenured members decreased over time. 
+The percentage of part time staff members significantly increased over the years.
+The association had a spike of full time non tenure track members in 1989 but after that, the percentage remained fairly constant.
+In contrast, the percentage of graduate student members within the association experienced a sudden decline in 1989 and then recovered and maintained a relatively constant trend until 2011. 
+
+## Grading
+
+In addition to accuracy of your answers to questions, your submission will be 
+evaluated for
+
+- coding style,
+- informatively named code chunks,
+- commit after each question (at a minimum, more commits ok),
+- informative commit messages,
+- document organization, and
+- quality of writing and grammar.
+
+## More ugly charts
+
+Want to see more ugly charts?
+
+- [Flowing Data - Ugly Charts](https://flowingdata.com/category/visualization/ugly-visualization/)
+- [Reddit - Data is ugly](https://www.reddit.com/r/dataisugly/)
+
+## Acknowledgements
+
+These exercises were originally created by Angela Zoss and Eric Monson.
